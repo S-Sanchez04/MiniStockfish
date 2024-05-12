@@ -11,7 +11,7 @@ Black = (0, 0, 0)
 Gray = (211, 211, 211)
 Blue = (0, 0, 255)
 Green = (170, 255, 0)
-
+Yellow = (0,255,255)
 # Letras de las columnas
 ColumnLetters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 
@@ -65,20 +65,20 @@ def agregarNodo(grafo, nodo):
 
 def agregarArista(grafo, nodo1, nodo2):
     grafo.add_edge(nodo1, nodo2)
-
-def mostrarGrafo(grafo, posIn):
-    node_color = ['lightblue' if node != posIn else (.85, .3, .3) for node in grafo.nodes()]
+    
+def mostrarGrafo(grafo, posIn, colPeon):
+    node_color = [(.85, .3, .3) if node == posIn else 'green' if node[0] == colPeon else 'lightblue' for node in grafo.nodes()]
     nx.draw(grafo, with_labels=True, node_color=node_color, node_size=800, font_size=10)
     plt.show()
 
 def grafoManager(grafo, move):
     FromNodo = str(GetNameNodo(move.from_square))
     ToNodo = str(GetNameNodo(move.to_square))
-    if not grafo.has_node(FromNodo):
-        agregarNodo(grafo, FromNodo)
-    if not grafo.has_node(ToNodo):
-        agregarNodo(grafo, ToNodo)
-        agregarArista(grafo, FromNodo, ToNodo)
+    #if not grafo.has_node(FromNodo):
+    agregarNodo(grafo, FromNodo)
+    #if not grafo.has_node(ToNodo):
+    agregarNodo(grafo, ToNodo)
+    agregarArista(grafo, FromNodo, ToNodo)
 
 def posInicial(board, ficha):
     casillasConPiezas = board.piece_map()
@@ -96,7 +96,7 @@ def movimientosFicha(board):
         movPosibles.append((to_row, to_col))
     return movPosibles
 
-def moverPieza(grafo, board, row, col):
+def moverPieza(board, row, col):
     dest_square = chess.square(col, 7 - row)  # Convertir las coordenadas de fila y columna a un índice de casilla
     move = chess.Move.null()  # Inicializar un movimiento nulo por defecto
     for legal_move in board.legal_moves:
@@ -105,7 +105,6 @@ def moverPieza(grafo, board, row, col):
             break
     if move != chess.Move.null():
         board.push(move)  # Aplicar el movimiento si es legal
-        grafoManager(grafo, move)
         return True
 
 def ganador(board):
@@ -151,8 +150,8 @@ def MoveInGraph(move):
 
 '''
 def GrafoGenerator(board):
-    PosPeon = GetPos(board, 'P')
-    depth = (8 - int(PosPeon[1]))
+    posPeon = GetPos(board, 'P')
+    depth = (8 - int(posPeon[1]))
     TempBoard = board.copy()
     Grafo_Caballo(TempBoard)
     for move1 in TempBoard.legal_moves:
@@ -177,7 +176,7 @@ def GrafoGenerator(board):
                         Grafo_Caballo(TempBoard5) --- version antigua, sin recursion
 '''
 
-def GrafoGenerator(board, depth=5, level=1):
+def GrafoGenerator(board, depth=7, level=1):
     TempBoard = board.copy()
     if not TempBoard.turn:
         Grafo_Caballo(TempBoard)
@@ -187,20 +186,63 @@ def GrafoGenerator(board, depth=5, level=1):
             TempBoard1.push(move)
             GrafoGenerator(TempBoard1, depth, level+1)
             TempBoard1.pop()
+def ComoStalemate(posInCaballo, posPeon):
+    depth = 8-int(posPeon[1])
+    for i in range(depth):
+        turnos = 0
+        try:
+            Target = posPeon[0]+str(int(posPeon[1])+1+i)
+            shortestPath = nx.shortest_path(GRAFO_CABALLO, source=posInCaballo, target= Target)
+            if shortestPath is not None:
+                shortestPath = shortestPath[1:] #Eliminar el nodo inicial
+                turnos += len(shortestPath) + int(posPeon[1])
+                print(turnos, Target[1], turnos == int(Target[1]))
+                if turnos == int(Target[1]):
+                    print("Stalemate ",shortestPath)
+                    break
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            shortestPath = None
+    return shortestPath
 
+def ComoGanar(posInCaballo, posPeon):  
+    depth = 8-int(posPeon[1])
+    for i in range(depth):
+        turnos = -1
+        try:
+            Target = posPeon[0]+str(int(posPeon[1])+i)
+            shortestPath = nx.shortest_path(GRAFO_CABALLO, source=posInCaballo, target= Target)
+            if shortestPath is not None:
+                shortestPath = shortestPath[1:] #Eliminar el nodo inicial
+                turnos += len(shortestPath) + int(posPeon[1])
+                print(turnos, Target[1], turnos == int(Target[1]))
+                if turnos == int(Target[1]):
+                    print("Shortest ",shortestPath)
+                    return shortestPath
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            shortestPath = None
+    return None
+
+def MejoresMovimientos(screen, posInCaballo, posPeon):
+    shortestPath = ComoGanar(posInCaballo, posPeon)
+    if shortestPath is None : 
+        shortestPath = ComoStalemate(posInCaballo, posPeon)
+    return shortestPath
+
+    
 
 def main():
     pygame.init()
-    grafo = crearGrafo()
     screen = pygame.display.set_mode((Width, Height))
     pygame.display.set_caption('Ajedrez')
     ficha_seleccionada = None
     seleccionado = 0
     n, p = GetNewPosicion()
     pos = n+"/8/8/8/8/8/"+ p +"/8 w KQkq - 0 1"
-    #pos = "n7" + "/8/8/8/8/8/" + "P7" + "/8 w KQkq - 0 1"
+    #pos = "7n" + "/8/8/8/8/8/" + "1P6" + "/8 w KQkq - 0 1"
     board = chess.Board(pos)
     firstMove = True
+    caminoFinal = False
+    drawBoard(screen)
     posInCaballo = GetPos(board, 'n')
     running = True
     while running:
@@ -238,16 +280,29 @@ def main():
                             seleccionado = 0
                             ficha_seleccionada = None
                         else:
-                            if moverPieza(grafo,board,row,col):
-                                if firstMove :
-                                    GrafoGenerator(board)
-                                    firstMove = False
+                            if moverPieza(board,row,col):
                                 pygame.draw.rect(screen, White, (col * SquareSize, row * SquareSize, SquareSize, SquareSize))
                                 seleccionado = 0
                                 ficha_seleccionada = None
+                                if firstMove :
+                                    posPeon =  GetPos(board,'P')
+                                    colPeon =posPeon[0]
+                                    GrafoGenerator(board)
+                                    shortestPath = MejoresMovimientos(screen, posInCaballo, posPeon)
+                                    caminoFinal = True
+                                    pygame.display.flip()
+                                    firstMove = False
+                                screen.fill(White)
+                                drawBoard(screen)
+                                drawPieces(screen, board)
+                                for square in shortestPath:
+                                    column = getColumnIndex(square[0])
+                                    row = int(square[1])-1
+                                    pygame.draw.rect(screen, Yellow , ((column)* SquareSize, (7-row) * SquareSize, SquareSize, SquareSize))
         if seleccionado == 0:
-            screen.fill(White)
-            drawBoard(screen)
+            if not caminoFinal:
+                screen.fill(White)
+                drawBoard(screen)
         drawPieces(screen, board)
         pygame.display.flip()
         if ganador(board):
@@ -263,7 +318,7 @@ def main():
             pygame.display.flip()  
             pygame.time.delay(2000) 
             running = False
-    mostrarGrafo(GRAFO_CABALLO, posInCaballo)
+    mostrarGrafo(GRAFO_CABALLO, posInCaballo, colPeon)
     pygame.quit()
 GRAFO_CABALLO = crearGrafo()
 main()
