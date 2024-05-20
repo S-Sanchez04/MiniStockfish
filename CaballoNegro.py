@@ -66,19 +66,24 @@ def agregarNodo(grafo, nodo):
 def agregarArista(grafo, nodo1, nodo2):
     grafo.add_edge(nodo1, nodo2)
     
-def mostrarGrafo(grafo, posIn, colPeon):
-    node_color = [(.85, .3, .3) if node == posIn else 'green' if node[0] == colPeon else 'lightblue' for node in grafo.nodes()]
+def mostrarGrafo(grafo, jugados):
+    node_color = [(.85, .3, .3) if node in jugados else 'lightblue' for node in grafo.nodes()]
     nx.draw(grafo, with_labels=True, node_color=node_color, node_size=800, font_size=10)
     plt.show()
 
 def grafoManager(grafo, move):
     FromNodo = str(GetNameNodo(move.from_square))
     ToNodo = str(GetNameNodo(move.to_square))
-    #if not grafo.has_node(FromNodo):
-    agregarNodo(grafo, FromNodo)
-    #if not grafo.has_node(ToNodo):
-    agregarNodo(grafo, ToNodo)
-    agregarArista(grafo, FromNodo, ToNodo)
+    if 1 == 1:
+        if not grafo.has_node(FromNodo):
+            agregarNodo(grafo, FromNodo)
+        if not grafo.has_node(ToNodo):
+            agregarNodo(grafo, ToNodo)
+            agregarArista(grafo, FromNodo, ToNodo)
+    else:
+        agregarNodo(grafo, FromNodo)
+        agregarNodo(grafo, ToNodo)
+        agregarArista(grafo, FromNodo, ToNodo)
 
 def posInicial(board, ficha):
     casillasConPiezas = board.piece_map()
@@ -234,6 +239,7 @@ def main():
     pygame.init()
     screen = pygame.display.set_mode((Width, Height))
     pygame.display.set_caption('Ajedrez')
+    jugados = set()
     ficha_seleccionada = None
     seleccionado = 0
     n, p = GetNewPosicion()
@@ -244,6 +250,7 @@ def main():
     caminoFinal = False
     drawBoard(screen)
     posInCaballo = GetPos(board, 'n')
+    jugados.add(posInCaballo)
     running = True
     while running:
         for event in pygame.event.get():
@@ -295,6 +302,8 @@ def main():
                                 screen.fill(White)
                                 drawBoard(screen)
                                 drawPieces(screen, board)
+                                if board.turn:
+                                    jugados.add(getColumnLetter(col)+str(8-row))
                                 for square in shortestPath:
                                     column = getColumnIndex(square[0])
                                     row = int(square[1])-1
@@ -304,6 +313,7 @@ def main():
                 screen.fill(White)
                 drawBoard(screen)
         drawPieces(screen, board)
+        print(jugados)
         pygame.display.flip()
         if ganador(board):
             ganadores = "Negras"
@@ -318,7 +328,7 @@ def main():
             pygame.display.flip()  
             pygame.time.delay(2000) 
             running = False
-    mostrarGrafo(GRAFO_CABALLO, posInCaballo, colPeon)
+    mostrarGrafo(GRAFO_CABALLO, jugados)
     pygame.quit()
 GRAFO_CABALLO = crearGrafo()
 main()
